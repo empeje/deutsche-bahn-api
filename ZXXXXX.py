@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
+'''
 COMP9321 24T1 Assignment 2
 Data publication as a RESTful service API
 
@@ -64,37 +64,96 @@ give cs9321 assign2 zid.py requirements.txt
 You can also submit through WebCMS3, using the tab at the top of the assignment
 page.
 
-"""
+'''
 
 # You can import more modules from the standard library here if you need them
 # (which you will, e.g. sqlite3).
 import os
 from pathlib import Path
+import sqlite3
+import requests
+from flask import Flask, request, jsonify
+from flask_restx import Api, Resource, fields
+from datetime import datetime
 
 # You can import more third-party packages here if you need them, provided
 # that they've been used in the weekly labs, or specified in this assignment,
 # and their versions match.
-from dotenv import load_dotenv          # Needed to load the environment variables from the .env file
-import google.generativeai as genai     # Needed to access the Generative AI API
+#from dotenv import load_dotenv          # Needed to load the environment variables from the .env file
+#import google.generativeai as genai     # Needed to access the Generative AI API
 
 
 studentid = Path(__file__).stem         # Will capture your zID from the filename.
 db_file   = f"{studentid}.db"           # Use this variable when referencing the SQLite database file.
 txt_file  = f"{studentid}.txt"          # Use this variable when referencing the txt file for Q7.
+app = Flask(__name__)
+api = Api(app, doc='/swagger.json')
+app.config['HOST_NAME'] = '127.0.0.1'
+app.config['PORT'] = 5000  # Adjust as needed
 
 
 # Load the environment variables from the .env file
-load_dotenv()
+#load_dotenv()
 
 # Configure the API key
-genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+#genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # Create a Gemini Pro model
-gemini = genai.GenerativeModel('gemini-pro')
+#gemini = genai.GenerativeModel('gemini-pro')
 
+'''
 if __name__ == "__main__":
     # Here's a quick example of using the Generative AI API:
     question = "Give me some facts about UNSW!"
     response = gemini.generate_content(question)
     print(question)
     print(response.text)
+'''
+
+@api.route('/stops')
+class Stops(Resource):
+    @api.expect(api.model('StopQuery', {'query': fields.String(required=True)}))
+    @api.marshal_list_with(api.model('Stop', {
+        'stop_id': fields.Integer,
+        'last_updated': fields.String,
+        '_links': fields.Nested({
+            #'self': fields.Url('stop_detail')
+        })
+    }))
+    @api.response(201, 'Stops retrieved successfully')
+    @api.response(404, 'No stops found matching the query')
+    @api.response(503, 'Deutsche Bahn API unavailable')
+    def put(self):
+        query = request.json.get('query')
+        if not query:
+            return jsonify({'error': 'Invalid query string'}), 400
+
+        try:
+            # Get stops from Deutsche Bahn API
+            response = requests.get('https://v6.db.transport.rest/locations', params={'query': query, 'limit': 5})
+            response.raise_for_status()
+            stops_data = response.json()
+
+            # Prepare response data directly
+            stops = [{
+                'stop_id': stop['id'],
+                'last_updated': datetime.now().strftime("%Y-%m-%d-%H:%M:%S"),
+                '_links': {
+                    'self': {
+                        'href': f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop['id']}"
+                    }
+                }
+            } for stop in stops_data]
+
+            return jsonify(stops), 201  # Created
+        
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                return jsonify({'error': 'No stops found'}), 404
+            else:
+                return jsonify({'error': 'Deutsche Bahn API unavailable'}), 503
+        except requests.exceptions.RequestException as e:
+            return jsonify({'error': 'An error occurred'}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
