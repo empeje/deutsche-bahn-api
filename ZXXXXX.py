@@ -72,7 +72,7 @@ import os
 from pathlib import Path
 import sqlite3
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for
 from flask_restx import Api, Resource, fields
 from datetime import datetime
 
@@ -113,13 +113,7 @@ if __name__ == "__main__":
 @api.route('/stops')
 class Stops(Resource):
     @api.expect(api.model('StopQuery', {'query': fields.String(required=True)}))
-    @api.marshal_list_with(api.model('Stop', {
-        'stop_id': fields.Integer,
-        'last_updated': fields.String,
-        '_links': fields.Nested({
-            #'self': fields.Url('stop_detail')
-        })
-    }))
+
     @api.response(201, 'Stops retrieved successfully')
     @api.response(404, 'No stops found matching the query')
     @api.response(503, 'Deutsche Bahn API unavailable')
@@ -161,6 +155,7 @@ class Stops(Resource):
             print("=========================================")
             print("JSON RESPONSE = ")
             print(json_response)
+            print(app.url_map)
 
             return stops, 201  # Created
 
