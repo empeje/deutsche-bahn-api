@@ -79,27 +79,25 @@ from datetime import datetime
 # You can import more third-party packages here if you need them, provided
 # that they've been used in the weekly labs, or specified in this assignment,
 # and their versions match.
-#from dotenv import load_dotenv          # Needed to load the environment variables from the .env file
-#import google.generativeai as genai     # Needed to access the Generative AI API
+from dotenv import load_dotenv  # Needed to load the environment variables from the .env file
+import google.generativeai as genai  # Needed to access the Generative AI API
 
-
-studentid = Path(__file__).stem         # Will capture your zID from the filename.
-db_file   = f"{studentid}.db"           # Use this variable when referencing the SQLite database file.
-txt_file  = f"{studentid}.txt"          # Use this variable when referencing the txt file for Q7.
+studentid = Path(__file__).stem  # Will capture your zID from the filename.
+db_file = f"{studentid}.db"  # Use this variable when referencing the SQLite database file.
+txt_file = f"{studentid}.txt"  # Use this variable when referencing the txt file for Q7.
 app = Flask(__name__)
 api = Api(app, doc='/swagger.json')
 app.config['HOST_NAME'] = '127.0.0.1'
 app.config['PORT'] = 5000  # Adjust as needed
 
-
 # Load the environment variables from the .env file
-#load_dotenv()
+load_dotenv()
 
 # Configure the API key
-#genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # Create a Gemini Pro model
-#gemini = genai.GenerativeModel('gemini-pro')
+gemini = genai.GenerativeModel('gemini-pro')
 
 '''
 if __name__ == "__main__":
@@ -110,10 +108,46 @@ if __name__ == "__main__":
     print(response.text)
 '''
 
+
+def get_db_connection():
+    conn = sqlite3.connect(db_file)
+    conn.row_factory = sqlite3.Row  # This enables column access by name: row['column_name']
+    return conn
+
+
+def insert_dict_into_table(conn, table_name, data_dict):
+    # Construct column names and placeholders for values
+    columns = ', '.join(data_dict.keys())
+    placeholders = ':'+', :'.join(data_dict.keys())  # Named placeholders for each key in the dictionary
+
+    # Construct the INSERT INTO statement
+    sql = f'INSERT INTO {table_name} ({columns}) VALUES ({placeholders})'
+
+    # Execute the SQL statement with the dictionary
+    cursor = conn.cursor()
+    cursor.execute(sql, data_dict)
+    conn.commit()
+
+
+def init_db():
+    with app.app_context():
+        db = get_db_connection()
+        cursor = db.cursor()
+        # Create stops table if it doesn't exist
+        cursor.execute(""" CREATE TABLE IF NOT EXISTS stops (
+                            stop_id INTEGER PRIMARY KEY,
+                            last_updated TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            latitude REAL NOT NULL,
+                            longitude REAL NOT NULL,
+                            next_departure TEXT NULL
+                        ); """)
+        db.commit()
+        db.close()
+
 @api.route('/stops')
 class Stops(Resource):
     @api.expect(api.model('StopQuery', {'query': fields.String(required=True)}))
-
     @api.response(201, 'Stops retrieved successfully')
     @api.response(404, 'No stops found matching the query')
     @api.response(503, 'Deutsche Bahn API unavailable')
@@ -132,18 +166,31 @@ class Stops(Resource):
             print("=========================================")
             print("STOPS DATA = ")
             print(stops_data)
+            last_updated = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+            for stop in stops_data:
+                data = {
+                    "stop_id": stop["id"],
+                    "last_updated": last_updated,
+                    "name":  stop["name"],
+                    "latitude": stop["location"]["latitude"],
+                    "longitude": stop["location"]["longitude"],
+                    # TODO: for each stop need to call /departure API and get the top of the # list
+                    "next_departure": None
+                }
+                db = get_db_connection()
+                insert_dict_into_table(db, "stops", data)
 
             stops = (  # Use parentheses for generator expression
-               {
-                  'stop_id': stop['id'],
-                  'last_updated': datetime.now().strftime("%Y-%m-%d-%H:%M:%S"),
-                  '_links': {
+                {
+                    'stop_id': stop['id'],
+                    'last_updated': last_updated,
+                    '_links': {
                         'self': {
-                           'href': f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop['id']}"
+                            'href': f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop['id']}"
                         }
-                  }
-               }
-               for stop in stops_data
+                    }
+                }
+                for stop in stops_data
             )
 
             stops = list(stops)
@@ -169,4 +216,5 @@ class Stops(Resource):
 
 
 if __name__ == '__main__':
+    init_db()
     app.run(debug=True)
