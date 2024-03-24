@@ -131,22 +131,39 @@ class Stops(Resource):
         try:
             # Get stops from Deutsche Bahn API
             response = requests.get('https://v6.db.transport.rest/locations', params={'query': query, 'limit': 5})
+            print("RESPONSE = ")
+            print(response)
             response.raise_for_status()
             stops_data = response.json()
+            print("=========================================")
+            print("STOPS DATA = ")
+            print(stops_data)
 
-            # Prepare response data directly
-            stops = [{
-                'stop_id': stop['id'],
-                'last_updated': datetime.now().strftime("%Y-%m-%d-%H:%M:%S"),
-                '_links': {
-                    'self': {
-                        'href': f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop['id']}"
-                    }
-                }
-            } for stop in stops_data]
+            stops = (  # Use parentheses for generator expression
+               {
+                  'stop_id': stop['id'],
+                  'last_updated': datetime.now().strftime("%Y-%m-%d-%H:%M:%S"),
+                  '_links': {
+                        'self': {
+                           'href': f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop['id']}"
+                        }
+                  }
+               }
+               for stop in stops_data
+            )
 
-            return jsonify(stops), 201  # Created
-        
+            stops = list(stops)
+            print("=========================================")
+            print("STOPS = ")
+            print(stops)
+
+            json_response = jsonify(stops)
+            print("=========================================")
+            print("JSON RESPONSE = ")
+            print(json_response)
+
+            return stops, 201  # Created
+
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 return jsonify({'error': 'No stops found'}), 404
@@ -154,6 +171,7 @@ class Stops(Resource):
                 return jsonify({'error': 'Deutsche Bahn API unavailable'}), 503
         except requests.exceptions.RequestException as e:
             return jsonify({'error': 'An error occurred'}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
