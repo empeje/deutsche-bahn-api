@@ -201,6 +201,9 @@ class Stops(Resource):
             print("STOPS DATA = ")
             print(stops_data)
             last_updated = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+
+            stops_data.sort(key=lambda stop: stop["id"])
+
             for stop in stops_data:
                 data = {
                     "stop_id": stop["id"],
