@@ -237,7 +237,8 @@ def get_next_departure_from_api(stop_id):
   for departure in departures["departures"]:
       if "platform" in departure and departure["platform"] is not None and "direction" in departure and departure["direction"] is not None:
           try:
-              station_name = departure["stop"]["name"]
+              #station_name = departure["stop"]["name"]
+              station_name = "Platform "+departure["platform"]+" towards "+departure["direction"]
               return station_name  # Return station name if found
           except KeyError:
               print("Error: Station information unavailable for the first departure with valid platform and direction.")
