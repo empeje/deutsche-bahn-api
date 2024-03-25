@@ -120,13 +120,23 @@ def insert_dict_into_table(conn, table_name, data_dict):
     columns = ', '.join(data_dict.keys())
     placeholders = ':'+', :'.join(data_dict.keys())  # Named placeholders for each key in the dictionary
 
-    # Construct the INSERT INTO statement
-    sql = f'INSERT INTO {table_name} ({columns}) VALUES ({placeholders})'
-
-    # Execute the SQL statement with the dictionary
+    # Check if stop already exists (using stop_id for uniqueness)
     cursor = conn.cursor()
-    cursor.execute(sql, data_dict)
-    conn.commit()
+    cursor.execute(f"SELECT * FROM {table_name} WHERE stop_id=?", (data_dict['stop_id'],))
+    existing_stop = cursor.fetchone()
+
+    if existing_stop:
+        # Update existing stop's last_updated timestamp
+        sql = f"UPDATE {table_name} SET last_updated=? WHERE stop_id=?"
+        cursor.execute(sql, (data_dict['last_updated'], data_dict['stop_id']))
+        conn.commit()
+        print(f"Stop {data_dict['stop_id']} updated")
+    else:
+        # Insert new stop if it doesn't exist
+        sql = f'INSERT INTO {table_name} ({columns}) VALUES ({placeholders})'
+        cursor.execute(sql, data_dict)
+        conn.commit()
+        print(f"Stop {data_dict['stop_id']} imported")
 
 
 def init_db():
