@@ -150,34 +150,10 @@ def init_db():
                             name TEXT NOT NULL,
                             latitude REAL NOT NULL,
                             longitude REAL NOT NULL,
-                            next_departure TEXT NOT NULL
+                            next_departure TEXT NULL
                         ); """)
         db.commit()
         db.close()
-
-def get_next_station(id):
-    dep_response = requests.get(f'https://v6.db.transport.rest/stops/{stop_id}/departures', params={'duration': 120})  # Max 120 minutesprint("RESPONSE = ")
-    dep_response.raise_for_status()
-    departures = dep_response.json()
-    station_names = []
-    for departure in departures["departures"]:
-        try:
-            stop = departure["stop"]
-        except KeyError:
-            continue
-
-        if "station" in stop:
-            station = stop["station"]
-            station_name = station["name"]
-            station_names.append(station_name)
-        else:
-            pass
-
-    print("Station names:", station_names)
-    print(station_names[0])
-
-    next_station=station_names[0]
-    return next_station
 
 @api.route('/stops')
 class Stops(Resource):
@@ -212,7 +188,7 @@ class Stops(Resource):
                     "latitude": stop["location"]["latitude"],
                     "longitude": stop["location"]["longitude"],
                     # TODO: for each stop need to call /departure API and get the top of the # list
-                    "next_departure": get_next_station(stop["id"])
+                    "next_departure": None
                 }
                 db = get_db_connection()
                 insert_dict_into_table(db, "stops", data)
