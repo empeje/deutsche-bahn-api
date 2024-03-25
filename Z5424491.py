@@ -120,13 +120,23 @@ def insert_dict_into_table(conn, table_name, data_dict):
     columns = ', '.join(data_dict.keys())
     placeholders = ':'+', :'.join(data_dict.keys())  # Named placeholders for each key in the dictionary
 
-    # Construct the INSERT INTO statement
-    sql = f'INSERT INTO {table_name} ({columns}) VALUES ({placeholders})'
-
-    # Execute the SQL statement with the dictionary
+    # Check if stop already exists (using stop_id for uniqueness)
     cursor = conn.cursor()
-    cursor.execute(sql, data_dict)
-    conn.commit()
+    cursor.execute(f"SELECT * FROM {table_name} WHERE stop_id=?", (data_dict['stop_id'],))
+    existing_stop = cursor.fetchone()
+
+    if existing_stop:
+        # Update existing stop's last_updated timestamp
+        sql = f"UPDATE {table_name} SET last_updated=? WHERE stop_id=?"
+        cursor.execute(sql, (data_dict['last_updated'], data_dict['stop_id']))
+        conn.commit()
+        print(f"Stop {data_dict['stop_id']} updated")
+    else:
+        # Insert new stop if it doesn't exist
+        sql = f'INSERT INTO {table_name} ({columns}) VALUES ({placeholders})'
+        cursor.execute(sql, data_dict)
+        conn.commit()
+        print(f"Stop {data_dict['stop_id']} imported")
 
 
 def init_db():
@@ -140,10 +150,34 @@ def init_db():
                             name TEXT NOT NULL,
                             latitude REAL NOT NULL,
                             longitude REAL NOT NULL,
-                            next_departure TEXT NULL
+                            next_departure TEXT NOT NULL
                         ); """)
         db.commit()
         db.close()
+
+def get_next_station(id):
+    dep_response = requests.get(f'https://v6.db.transport.rest/stops/{stop_id}/departures', params={'duration': 120})  # Max 120 minutesprint("RESPONSE = ")
+    dep_response.raise_for_status()
+    departures = dep_response.json()
+    station_names = []
+    for departure in departures["departures"]:
+        try:
+            stop = departure["stop"]
+        except KeyError:
+            continue
+
+        if "station" in stop:
+            station = stop["station"]
+            station_name = station["name"]
+            station_names.append(station_name)
+        else:
+            pass
+
+    print("Station names:", station_names)
+    print(station_names[0])
+
+    next_station=station_names[0]
+    return next_station
 
 @api.route('/stops')
 class Stops(Resource):
@@ -175,7 +209,7 @@ class Stops(Resource):
                     "latitude": stop["location"]["latitude"],
                     "longitude": stop["location"]["longitude"],
                     # TODO: for each stop need to call /departure API and get the top of the # list
-                    "next_departure": None
+                    "next_departure": get_next_station(stop["id"])
                 }
                 db = get_db_connection()
                 insert_dict_into_table(db, "stops", data)
