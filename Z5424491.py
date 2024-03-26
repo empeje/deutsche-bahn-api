@@ -299,8 +299,8 @@ class Stop(Resource):
 
         links = {
             "self": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop_id}",
-            "next": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_next"]}",
-            "prev": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_prev"]}",
+            "next": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_next"]}" if nearby_stop["output_next"] else None,
+            "prev": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_prev"]}" if nearby_stop["output_prev"] else None,
         }
 
         stop_dict = {**stop_dict, "_links": links}
