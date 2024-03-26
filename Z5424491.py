@@ -237,20 +237,19 @@ class Stop(Resource):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        '''
         params = request.args.to_dict(flat=True)
-        include_fields=params["include"].split(',')
+        include_fields=params.get("include").split(',') if params.get("include") else None
 
-        valid_params, error_message = validate_parameters(include_fields)
-        print(valid_params)
+        if include_fields:
+            valid_params, error_message = validate_parameters(include_fields)
+            print(valid_params)
 
-        if valid_params is None:
-            print("no valid params")
-            return {'message': error_message}, 400
-        '''
+            if valid_params is None:
+                print("no valid params")
+                return {'message': error_message}, 400        
         
         # Define the query to retrieve stop details
-        cursor.execute("SELECT * FROM stops WHERE stop_id = ?", (stop_id,))
+        cursor.execute(f"SELECT {", ".join(valid_params) if include_fields else "*"} FROM stops WHERE stop_id = ?", (stop_id,))
         stop_data = cursor.fetchone()
 
         if stop_data is None:
@@ -261,10 +260,11 @@ class Stop(Resource):
         stop_dict = dict(stop_data)
 
         next_departure = get_next_departure_from_api(stop_id)
-        if next_departure is not None:
-            stop_dict["next_departure"] = next_departure
-        else:
-            stop_dict["next_departure"] = None
+        if not include_fields or (include_fields and "next_departure" in valid_params):
+            if next_departure is not None:
+                stop_dict["next_departure"] = next_departure
+            else:
+                stop_dict["next_departure"] = None
 
         # Update the database with the retrieved next departure time (if available)
         if "next_departure" in stop_dict:
