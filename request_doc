@@ -1,5 +1,9 @@
+PUT
 curl --location --request PUT 'http://127.0.0.1:5000/stops' \
 --header 'Content-Type: application/json' \
 --data '{
     "query": "Hbf"
 }'
+
+GET /stops/{stop_id}
+curl --location 'http://127.0.0.1:5000/stops/{stop_id}'

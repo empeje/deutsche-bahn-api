@@ -72,7 +72,7 @@ import os
 from pathlib import Path
 import sqlite3
 import requests
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify, url_for, abort
 from flask_restx import Api, Resource, fields
 from datetime import datetime
 
@@ -155,6 +155,26 @@ def init_db():
         db.commit()
         db.close()
 
+def get_nearby_stop(stop_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    # Query for the next stop
+    cursor.execute('SELECT stop_id FROM stops WHERE stop_id > ? ORDER BY stop_id LIMIT 1', (stop_id,))
+    next_stop = cursor.fetchone()
+    next_stop_id = next_stop[0] if next_stop else None
+
+    # Query for the previous stop
+    cursor.execute('SELECT stop_id FROM stops WHERE stop_id < ? ORDER BY stop_id DESC LIMIT 1', (stop_id,))
+    prev_stop = cursor.fetchone()
+    prev_stop_id = prev_stop[0] if prev_stop else None
+
+    db.close()
+
+    return {
+        "output_next": next_stop_id,
+        "output_prev": prev_stop_id
+    }
+
 @api.route('/stops')
 class Stops(Resource):
     @api.expect(api.model('StopQuery', {'query': fields.String(required=True)}))
@@ -227,6 +247,67 @@ class Stops(Resource):
         except requests.exceptions.RequestException as e:
             return jsonify({'error': 'An error occurred'}), 500
 
+def get_next_departure_from_api(stop_id):
+  # Call external API to retrieve departures
+  dep_response = requests.get(f'https://v6.db.transport.rest/stops/{stop_id}/departures', params={'duration': 120})
+  dep_response.raise_for_status()
+  departures = dep_response.json()
+
+  # Find the first departure with valid platform and direction
+  for departure in departures["departures"]:
+      if "platform" in departure and departure["platform"] is not None and "direction" in departure and departure["direction"] is not None:
+          try:
+              #station_name = departure["stop"]["name"]
+              station_name = "Platform "+departure["platform"]+" towards "+departure["direction"]
+              return station_name  # Return station name if found
+          except KeyError:
+              print("Error: Station information unavailable for the first departure with valid platform and direction.")
+              break
+
+  # No valid departure found, return None
+  return None
+
+@api.route('/stops/<int:stop_id>')
+class Stop(Resource):
+    def get(self, stop_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Define the query to retrieve stop details
+        cursor.execute("SELECT * FROM stops WHERE stop_id = ?", (stop_id,))
+        stop_data = cursor.fetchone()
+
+        if stop_data is None:
+            # Stop not found, return 404 error
+            abort(404, "Stop not found")
+
+        # Convert row object to dictionary for easier access
+        stop_dict = dict(stop_data)
+
+        next_departure = get_next_departure_from_api(stop_id)
+        if next_departure is not None:
+            stop_dict["next_departure"] = next_departure
+        else:
+            stop_dict["next_departure"] = None
+
+        # Update the database with the retrieved next departure time (if available)
+        if "next_departure" in stop_dict:
+            cursor.execute("UPDATE stops SET next_departure = ? WHERE stop_id = ?", (stop_dict["next_departure"], stop_id))
+            conn.commit()
+        
+        nearby_stop = get_nearby_stop(stop_id)
+
+        links = {
+            "self": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop_id}",
+            "next": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_next"]}",
+            "prev": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_prev"]}",
+        }
+
+        stop_dict = {**stop_dict, "_links": links}
+
+        conn.close()
+
+        return stop_dict, 200
 
 if __name__ == '__main__':
     init_db()
