@@ -201,6 +201,9 @@ def validate_parameters(parameters):
         else:
             invalid_parameters.add(param)
 
+    print("------------")
+    print(valid_parameters)
+
     if invalid_parameters:
         return None, f"Invalid parameters: {', '.join(invalid_parameters)}"
 
