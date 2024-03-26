@@ -155,6 +155,26 @@ def init_db():
         db.commit()
         db.close()
 
+def get_nearby_stop(stop_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    # Query for the next stop
+    cursor.execute('SELECT stop_id FROM stops WHERE stop_id > ? ORDER BY stop_id LIMIT 1', (stop_id,))
+    next_stop = cursor.fetchone()
+    next_stop_id = next_stop[0] if next_stop else None
+
+    # Query for the previous stop
+    cursor.execute('SELECT stop_id FROM stops WHERE stop_id < ? ORDER BY stop_id DESC LIMIT 1', (stop_id,))
+    prev_stop = cursor.fetchone()
+    prev_stop_id = prev_stop[0] if prev_stop else None
+
+    db.close()
+
+    return {
+        "output_next": next_stop_id,
+        "output_prev": prev_stop_id
+    }
+
 @api.route('/stops')
 class Stops(Resource):
     @api.expect(api.model('StopQuery', {'query': fields.String(required=True)}))
@@ -274,6 +294,16 @@ class Stop(Resource):
         if "next_departure" in stop_dict:
             cursor.execute("UPDATE stops SET next_departure = ? WHERE stop_id = ?", (stop_dict["next_departure"], stop_id))
             conn.commit()
+        
+        nearby_stop = get_nearby_stop(stop_id)
+
+        links = {
+            "self": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop_id}",
+            "next": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_next"]}",
+            "prev": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_prev"]}",
+        }
+
+        stop_dict = {**stop_dict, "_links": links}
 
         conn.close()
 
