@@ -8,6 +8,7 @@ from datetime import datetime
 
 from dotenv import load_dotenv  # Needed to load the environment variables from the .env file
 import google.generativeai as genai  # Needed to access the Generative AI API
+from google.generativeai import GenerativeModel
 
 studentid = Path(__file__).stem  # Will capture your zID from the filename.
 db_file = f"{studentid}.db"  # Use this variable when referencing the SQLite database file.
@@ -21,10 +22,11 @@ app.config['PORT'] = 5000  # Adjust as needed
 load_dotenv()
 
 # Configure the API key
+print(os.environ.get("GOOGLE_API_KEY"))
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # Create a Gemini Pro model
-gemini = genai.GenerativeModel('gemini-pro')
+gemini = genai.GenerativeModel('gemini-1.0-pro-latest')
 
 
 def get_db_connection():
@@ -396,6 +398,40 @@ def get_operator_name(stop_id):
 
     return operator_names
 
+def get_operator_information(operator_name):
+  model = gemini
+
+  # Construct the prompt for information retrieval
+  prompt = f"What is {operator_name}?"
+
+  # Generate content using the model
+  response = model.generate_content(prompt)
+
+  # Extract the information from the response (adjust based on model output)
+  if response:
+    return response.text.strip()  # Assuming information is in the plain text response
+  else:
+    print(f"Error fetching information for {operator_name}: {response.error_message()}")
+    return None
+
+def add_operator_information(data):
+  profiles = list(data)
+  print("profiles")
+  print(profiles)
+
+  # Call get_operator_information for each operator
+  processed_profiles = []
+  for operator_name in profiles:
+    information = get_operator_information(operator_name)
+    processed_profiles.append({
+      "operator_name": operator_name,
+      "information": information if information else "Information not available"
+    })
+
+  return {
+    "profiles": processed_profiles
+  }
+
 @api.route('/operator-profiles/<int:stop_id>')
 class Stop(Resource):
     def get(self, stop_id):
@@ -403,12 +439,17 @@ class Stop(Resource):
         cursor = conn.cursor()
 
         operator_names=get_operator_name(stop_id)
+        print("operator names")
+        print(operator_names)
 
         # Define the query to retrieve stop details
         cursor.execute("SELECT * FROM stops WHERE stop_id = ?", (stop_id,))
         stop_data = cursor.fetchone()
+        print("stop data")
+        print(dict(stop_data))
     
-        profiles = [{"operator_name": name} for name in operator_names]
+        profiles = add_operator_information(operator_names)
+
         return {'stop_id': stop_id, 'profiles': profiles}
 
 
