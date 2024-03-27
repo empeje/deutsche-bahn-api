@@ -7,3 +7,22 @@ curl --location --request PUT 'http://127.0.0.1:5000/stops' \
 
 GET /stops/{stop_id}
 curl --location 'http://127.0.0.1:5000/stops/{stop_id}'
+
+GET /stops/{stop_id}?params
+curl --location 'http://127.0.0.1:5000/stops/8010159?include=name%2Clatitude'
+
+PATCH /stops/{stop_id}
+curl --location --request PATCH 'http://127.0.0.1:5000/stops/8010159' \
+--header 'Content-Type: application/json' \
+--data '{
+    "name": "New Data",
+    "latitude": 52.477079
+}'
+
+DELETE /stops/{stop_id}
+curl --location --request PATCH 'http://127.0.0.1:5000/stops/8010159' \
+--header 'Content-Type: application/json' \
+--data '{
+    "name": "New Data",
+    "latitude": 52.477079
+}'

@@ -361,29 +361,26 @@ class Stop(Resource):
         #update_fields.append("last_updated=?")
         #placeholders.append(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
         print("placeholders")
-        print(placeholders)
+        print(placeholders) #value to update the fields
         print("update fields")
-        print(update_fields)
+        print(update_fields) #fields to be updated name=?, latitude=?, last_updated=?
         print(', '.join(update_fields))
 
-        '''
+        
         if update_fields:
             sql = f"UPDATE stops SET {', '.join(update_fields)} WHERE stop_id=?"
             cursor.execute(sql, placeholders + [stop_id])
             conn.commit()
             print(f"Stop {stop_id} partially updated")
-
+            
             # Retrieve updated stop data (excluding _links)
-            cursor = conn.cursor()  # Reopen cursor for new query
-            cursor.execute("SELECT stop_id, last_updated FROM stops WHERE stop_id = ?", stop_id)
+            cursor.execute("SELECT stop_id, last_updated FROM stops WHERE stop_id = ?", (stop_id,))
             updated_stop_data = cursor.fetchone()
+            result = dict(updated_stop_data)
             conn.close()
+            print(result)
 
-            return {
-                "stop_id": updated_stop_data["stop_id"],
-                "last_updated": updated_stop_data["last_updated"]
-            }, 200
-        '''
+            return dict(result), 200
 
 def get_operator_name(stop_id):
     response = requests.get(f'https://v6.db.transport.rest/stops/{stop_id}/departures', params={'duration': 120})
