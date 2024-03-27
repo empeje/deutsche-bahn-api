@@ -215,27 +215,6 @@ def validate_parameters(parameters):
 
     return valid_parameters, None
 
-# Function to update _links for the whole database
-def update_links():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT stop_id FROM stops")
-    stop_ids = [row['stop_id'] for row in cursor.fetchall()]
-
-    # Update _links for each stop in the database
-    for stop_id in stop_ids:
-        nearby_stop = get_nearby_stop(stop_id)
-        links = {
-            "self": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop_id}",
-            "next": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop['output_next']}",
-            "prev": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop['output_prev']}",
-        }
-        cursor.execute("UPDATE stops SET _links = ? WHERE stop_id = ?", (json.dumps(links), stop_id))
-        conn.commit()
-
-    conn.close()
-
 @api.route('/stops/<int:stop_id>')
 @api.param('stop_id', 'The ID of the stop to retrieve information about')
 class Stop(Resource):
@@ -304,13 +283,17 @@ class Stop(Resource):
             conn.close()
             return {'message': f"The stop_id {stop_id} was not found in the database.", 'stop_id': stop_id}, 404
 
+        # Get nearby stop
+        nearby_stops = get_nearby_stop(stop_id)
+
         # Delete the stop from the database
         cursor.execute("DELETE FROM stops WHERE stop_id = ?", (stop_id,))
         conn.commit()
         conn.close()
 
         # Update _links for the whole database
-        #update_links()
+        for nearby in nearby_stops.values():
+            get_nearby_stop(nearby)
 
         return {'message': f"The stop_id {stop_id} was removed from the database.", 'stop_id': stop_id}, 200
 
