@@ -14,7 +14,7 @@ studentid = Path(__file__).stem  # Will capture your zID from the filename.
 db_file = f"{studentid}.db"  # Use this variable when referencing the SQLite database file.
 txt_file = f"{studentid}.txt"  # Use this variable when referencing the txt file for Q7.
 app = Flask(__name__)
-api = Api(app, doc='/swagger.json')
+api = Api(app)
 app.config['HOST_NAME'] = '127.0.0.1'
 app.config['PORT'] = 5000  # Adjust as needed
 
@@ -451,6 +451,52 @@ class Stop(Resource):
         profiles = add_operator_information(operator_names)
 
         return {'stop_id': stop_id, 'profiles': profiles}
+
+
+@api.route('/guide/')
+class Guide(Resource):
+    def get(self):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Define the query to retrieve stop details
+        cursor.execute("SELECT * FROM stops LIMIT 100")
+        stop_data = cursor.fetchall()
+        # Get the column names from the cursor description
+        columns = [description[0] for description in cursor.description]
+
+        # Convert each tuple to a dictionary
+        list_of_dicts = [dict(zip(columns, row)) for row in stop_data]
+        compact_json = json.dumps(list_of_dicts, separators=(',', ':'))
+
+        # Construct the prompt for information retrieval
+        prompt = f"""
+        I have list of stops for Deutsche Bahn National Railway. If I have the following database schema:
+        
+        ```sql
+        CREATE TABLE IF NOT EXISTS stops (
+                            stop_id INTEGER PRIMARY KEY,
+                            last_updated TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            latitude REAL NOT NULL,
+                            longitude REAL NOT NULL,
+                            next_departure TEXT NULL,
+                            prev_stop INTEGER NULL,
+                            next_stop INTEGER NULL
+        ```
+        
+        And these data:
+        {compact_json}
+        I need you to summarize a nice travel guide for my user. 
+        """
+
+        # Generate content using the model
+        response = gemini.generate_content(prompt)
+
+        if response:
+            return {"guide": response.text}
+        else:
+            print(f"Error fetching guide")
+            return None
 
 
 if __name__ == '__main__':
