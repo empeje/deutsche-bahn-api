@@ -266,6 +266,10 @@ class Stop(Resource):
 
         stop_dict = {**stop_dict, "_links": links}
 
+        pop_data = ["prev_stop","next_stop"]
+        for data in pop_data:
+            stop_dict.pop(data,None)
+
         conn.close()
 
         return stop_dict, 200
