@@ -68,7 +68,9 @@ def init_db():
                             name TEXT NOT NULL,
                             latitude REAL NOT NULL,
                             longitude REAL NOT NULL,
-                            next_departure TEXT NULL
+                            next_departure TEXT NULL,
+                            prev_stop INTEGER NULL,
+                            next_stop INTEGER NULL
                         ); """)
         db.commit()
         db.close()
@@ -80,11 +82,15 @@ def get_nearby_stop(stop_id):
     cursor.execute('SELECT stop_id FROM stops WHERE stop_id > ? ORDER BY stop_id LIMIT 1', (stop_id,))
     next_stop = cursor.fetchone()
     next_stop_id = next_stop[0] if next_stop else None
+    cursor.execute("UPDATE stops SET next_stop = ? WHERE stop_id = ?", (next_stop_id, stop_id))
+    db.commit()
 
     # Query for the previous stop
     cursor.execute('SELECT stop_id FROM stops WHERE stop_id < ? ORDER BY stop_id DESC LIMIT 1', (stop_id,))
     prev_stop = cursor.fetchone()
     prev_stop_id = prev_stop[0] if prev_stop else None
+    cursor.execute("UPDATE stops SET prev_stop = ? WHERE stop_id = ?", (prev_stop_id, stop_id))
+    db.commit()
 
     db.close()
 
@@ -285,8 +291,6 @@ class Stop(Resource):
 
         return stop_dict, 200
     
-    
-    
     def delete(self, stop_id):
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -298,7 +302,7 @@ class Stop(Resource):
         if stop_data is None:
             # Stop not found, return 404 error
             conn.close()
-            return {'message': f"The stop_id {stop_id} was not found in the database."}, 404
+            return {'message': f"The stop_id {stop_id} was not found in the database.", 'stop_id': stop_id}, 404
 
         # Delete the stop from the database
         cursor.execute("DELETE FROM stops WHERE stop_id = ?", (stop_id,))
@@ -310,7 +314,119 @@ class Stop(Resource):
 
         return {'message': f"The stop_id {stop_id} was removed from the database.", 'stop_id': stop_id}, 200
 
+    @api.expect(api.model('StopUpdate', {
+        'name': fields.String(required=False),
+        'latitude': fields.Float(required=False),
+        'longitude': fields.Float(required=False),
+        'last_updated': fields.String(required=False),
+        'next_departure': fields.String(required=False),
+    }))
+
+    @staticmethod
+    def patch(stop_id):
+        update_data = request.json
+        print(update_data)
+
+        # Validate request body - empty or forbidden fields
+        if not update_data:
+            print("Empty request body")
+            return {'error': 'Empty request body'}, 400
+        if any(field in update_data for field in ('stop_id', '_links')):
+            print("Forbidden field(s) in request body")
+            return {'error': 'Forbidden field(s) in request body'}, 400
+
+        # Validate specific field values (if provided)
+        if 'name' in update_data and not isinstance(update_data['name'], str) or not update_data['name'].strip():
+            print("Invalid name - must be a non-empty string")
+            return {'error': 'Invalid name - must be a non-empty string'}, 400
+        if 'latitude' in update_data and (not isinstance(update_data['latitude'], float) or update_data['latitude'] < -90 or update_data['latitude'] > 90):
+            print("Invalid latitude - must be a valid floating-point value between -90 and 90")
+            return {'error': 'Invalid latitude - must be a valid floating-point value between -90 and 90'}, 400
+        if 'longitude' in update_data and (not isinstance(update_data['longitude'], float) or update_data['longitude'] < -180 or update_data['longitude'] > 180):
+            print("Invalid longitude - must be a valid floating-point value between -180 and 180")
+            return {'error': 'Invalid longitude - must be a valid floating-point value between -180 and 180'}, 400
+
+        # Connect to database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if the stop exists
+        cursor.execute("SELECT * FROM stops WHERE stop_id = ?", (stop_id,))
+        stop_data = cursor.fetchone()
+        print(stop_data)
+
+        if stop_data is None:
+            # Stop not found, return 404 error
+            conn.close()
+            return {'error': f"Stop with ID {stop_id} not found"}, 404
+
+        # Construct update query based on provided fields
+        update_data['last_updated']=datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+        print(update_data)
+        update_fields = []
+        placeholders = []
+        for field, value in update_data.items():
+            if field in ('name', 'latitude', 'longitude', 'next_departure', 'last_updated'):
+                update_fields.append(f"{field}=?")
+                placeholders.append(value)
+
+        # Always update last_updated regardless of request body
+        #update_fields.append("last_updated=?")
+        #placeholders.append(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
+        print("placeholders")
+        print(placeholders)
+        print("update fields")
+        print(update_fields)
+        print(', '.join(update_fields))
+
+        '''
+        if update_fields:
+            sql = f"UPDATE stops SET {', '.join(update_fields)} WHERE stop_id=?"
+            cursor.execute(sql, placeholders + [stop_id])
+            conn.commit()
+            print(f"Stop {stop_id} partially updated")
+
+            # Retrieve updated stop data (excluding _links)
+            cursor = conn.cursor()  # Reopen cursor for new query
+            cursor.execute("SELECT stop_id, last_updated FROM stops WHERE stop_id = ?", stop_id)
+            updated_stop_data = cursor.fetchone()
+            conn.close()
+
+            return {
+                "stop_id": updated_stop_data["stop_id"],
+                "last_updated": updated_stop_data["last_updated"]
+            }, 200
+        '''
+
+def get_operator_name(stop_id):
+    response = requests.get(f'https://v6.db.transport.rest/stops/{stop_id}/departures', params={'duration': 120})
+    print(response)
+    response.raise_for_status()
+    operators = response.json()
+
+    operator_names = set()
+    for departure in operators["departures"]:
+        operator_names.add(departure["line"]["operator"]["name"])
+
+    print(operator_names)
+
+    return operator_names
+
+@api.route('/operator-profiles/<int:stop_id>')
+class Stop(Resource):
+    def get(self, stop_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        operator_names=get_operator_name(stop_id)
+
+        # Define the query to retrieve stop details
+        cursor.execute("SELECT * FROM stops WHERE stop_id = ?", (stop_id,))
+        stop_data = cursor.fetchone()
     
+        profiles = [{"operator_name": name} for name in operator_names]
+        return {'stop_id': stop_id, 'profiles': profiles}
+
 
 if __name__ == '__main__':
     init_db()
