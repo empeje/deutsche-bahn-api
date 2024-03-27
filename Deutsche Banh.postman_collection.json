@@ -1,0 +1,295 @@
+{
+	"info": {
+		"_postman_id": "909bceca-b7a9-4097-bd40-e82958a555cc",
+		"name": "Deutsche Banh",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "24993842"
+	},
+	"item": [
+		{
+			"name": "Transport Rest",
+			"item": [
+				{
+					"name": "GET /locations🔗",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://v6.db.transport.rest/locations?query=hbf",
+							"protocol": "https",
+							"host": [
+								"v6",
+								"db",
+								"transport",
+								"rest"
+							],
+							"path": [
+								"locations"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "hbf"
+								},
+								{
+									"key": "results",
+									"value": "5",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET /stops/reachable-from🔗",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://v6.db.transport.rest/stops/reachable-from?latitude=53.553766&longitude=9.977514&address=Hamburg,+Holstenwall+9",
+							"protocol": "https",
+							"host": [
+								"v6",
+								"db",
+								"transport",
+								"rest"
+							],
+							"path": [
+								"stops",
+								"reachable-from"
+							],
+							"query": [
+								{
+									"key": "latitude",
+									"value": "53.553766"
+								},
+								{
+									"key": "longitude",
+									"value": "9.977514"
+								},
+								{
+									"key": "address",
+									"value": "Hamburg,+Holstenwall+9"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET /stops/:id🔗",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://v6.db.transport.rest/stops/8000085",
+							"protocol": "https",
+							"host": [
+								"v6",
+								"db",
+								"transport",
+								"rest"
+							],
+							"path": [
+								"stops",
+								"8000085"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET /stops/:id/departures🔗",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://v6.db.transport.rest/stops/8000261/departures?duration=120",
+							"protocol": "https",
+							"host": [
+								"v6",
+								"db",
+								"transport",
+								"rest"
+							],
+							"path": [
+								"stops",
+								"8000261",
+								"departures"
+							],
+							"query": [
+								{
+									"key": "duration",
+									"value": "120"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PATCH stops/:id",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"New Halle(Saale)Hbf\",\n    \"latitude\": 52.477079\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://127.0.0.1:5000/stops/8010159",
+							"protocol": "http",
+							"host": [
+								"127",
+								"0",
+								"0",
+								"1"
+							],
+							"port": "5000",
+							"path": [
+								"stops",
+								"8010159"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "PUT stops",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"query\": \"Hbf\"\n}"
+				},
+				"url": {
+					"raw": "http://127.0.0.1:5000/stops",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "5000",
+					"path": [
+						"stops"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET stops/:id",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:5000/stops/8000261",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "5000",
+					"path": [
+						"stops",
+						"8000261"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET operator-profiles/:id",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:5000/operator-profiles/8000261",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "5000",
+					"path": [
+						"operator-profiles",
+						"8000261"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET stops/:id/params",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:5000/stops/8010159?include=name,latitude",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "5000",
+					"path": [
+						"stops",
+						"8010159"
+					],
+					"query": [
+						{
+							"key": "include",
+							"value": "name,latitude"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DELETE stops/:id",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:5000/stops/8000261",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "5000",
+					"path": [
+						"stops",
+						"8000261"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
