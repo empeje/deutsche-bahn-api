@@ -105,12 +105,13 @@ def get_nearby_stop(stop_id):
 class Stops(Resource):
     @api.expect(api.model('StopQuery', {'query': fields.String(required=True)}))
     @api.response(201, 'Stops retrieved successfully')
+    @api.response(400, 'Invalid query string')
     @api.response(404, 'No stops found matching the query')
     @api.response(503, 'Deutsche Bahn API unavailable')
     def put(self):
         query = request.json.get('query')
         if not query:
-            return jsonify({'error': 'Invalid query string'}), 400
+            return {'error': 'Invalid query string'}, 400
 
         try:
             # Get stops from Deutsche Bahn API
@@ -124,21 +125,48 @@ class Stops(Resource):
             print(stops_data)
             last_updated = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
 
-            stops_data.sort(key=lambda stop: stop["id"])
+            if any(item.get("type") != "stop" for item in stops_data):
+                return {'error': 'No stops found'}, 404
 
-            for stop in stops_data:
-                data = {
-                    "stop_id": stop["id"],
-                    "last_updated": last_updated,
-                    "name":  stop["name"],
-                    "latitude": stop["location"]["latitude"],
-                    "longitude": stop["location"]["longitude"],
-                    # TODO: for each stop need to call /departure API and get the top of the # list
-                    "next_departure": None
-                }
-                db = get_db_connection()
-                insert_dict_into_table(db, "stops", data)
+            '''
+            fixed_data = []
+            for item in stops_data:
+                if item.get("type") == "stop":
+                    # Valid stop object, move location inside if present
+                    location = item.get("location")
+                    if location:
+                        item["location"] = location
+                    fixed_data.append(item)
+            else:
+                pass
 
+            stops_data = fixed_data
+            '''
+
+            if  stops_data:
+                print("STOPS DATA FORMAT:")
+                print(stops_data[0])
+                stops_data.sort(key=lambda stop: stop["id"])
+            
+                for stop in stops_data:
+                    print("LOOP EXECUTION")
+                    data = {
+                        "stop_id": stop["id"],
+                        "last_updated": last_updated,
+                        "name":  stop["name"],
+                        "latitude": stop["location"]["latitude"],
+                        "longitude": stop["location"]["longitude"],
+                        # TODO: for each stop need to call /departure API and get the top of the # list
+                        "next_departure": None
+                    }
+                    db = get_db_connection()
+                    insert_dict_into_table(db, "stops", data)
+            
+            else:
+                print("Deutsche Bahn API returned no stops for the query.")  # Optional for debugging
+                return jsonify({'error': 'No stops found for your query'}), 404
+
+            print("MOVE TO STOPS ASSIGNMENT")
             stops = (  # Use parentheses for generator expression
                 {
                     'stop_id': stop['id'],
@@ -152,7 +180,7 @@ class Stops(Resource):
                 for stop in stops_data
             )
 
-            stops = list(stops)
+            stops = list(stops) if stops else[]
             print("=========================================")
             print("STOPS = ")
             print(stops)
@@ -167,11 +195,11 @@ class Stops(Resource):
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                return jsonify({'error': 'No stops found'}), 404
+                return {'error': 'No stops found'}, 404
             else:
-                return jsonify({'error': 'Deutsche Bahn API unavailable'}), 503
+                return {'error': 'Deutsche Bahn API unavailable'}, 503
         except requests.exceptions.RequestException as e:
-            return jsonify({'error': 'An error occurred'}), 500
+            return {'error': 'An error occurred'}, 500
 
 def get_next_departure_from_api(stop_id):
   # Call external API to retrieve departures
