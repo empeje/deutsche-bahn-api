@@ -129,6 +129,7 @@ class Stops(Resource):
                 return {'error': 'No stops found'}, 404
 
             '''
+            #If we want to force any response and save it to local db
             fixed_data = []
             for item in stops_data:
                 if item.get("type") == "stop":
@@ -465,6 +466,13 @@ class Stop(Resource):
     def get(self, stop_id):
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM stops WHERE stop_id = ?", (stop_id,))
+        stop_exists = cursor.fetchone()[0] > 0  # Check if count is greater than 0
+
+        if not stop_exists:
+            # Stop not found, return appropriate error response
+            return {"error": f"Stop with ID {stop_id} not found"}, 404  # Not Found
 
         operator_names=get_operator_name(stop_id)
         print("operator names")
