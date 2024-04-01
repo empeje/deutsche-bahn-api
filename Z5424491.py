@@ -339,9 +339,7 @@ class Stop(Resource):
         'last_updated': fields.String(required=False),
         'next_departure': fields.String(required=False),
     }))
-
-    @staticmethod
-    def patch(stop_id):
+    def patch(self, stop_id):
         update_data = request.json
         print(update_data)
 
@@ -491,7 +489,13 @@ class Stop(Resource):
 
 @api.route('/guide/')
 class Guide(Resource):
+    @api.response(200, 'Successfully create guide')
+    @api.response(400, 'Invalid query string')
+    @api.response(503, 'Gemini unavailable')
     def get(self):
+        params = request.args.to_dict(flat=True)
+        if params:
+            return {'success': False, 'message': 'Bad request'}, 400
         conn = get_db_connection()
         cursor = conn.cursor()
         # Define the query to retrieve stop details
@@ -526,13 +530,16 @@ class Guide(Resource):
         """
 
         # Generate content using the model
-        response = gemini.generate_content(prompt)
+        try:
+            response = gemini.generate_content(prompt)
 
-        if response:
-            return {"guide": response.text}
-        else:
-            print(f"Error fetching guide")
-            return None
+            if response:
+                return {"guide": response.text}, 200
+            else:
+                print(f"Error fetching guide")
+                return None, 503
+        except:
+            return None, 503
 
 
 if __name__ == '__main__':
