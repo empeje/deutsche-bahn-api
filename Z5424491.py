@@ -265,7 +265,7 @@ class Stop(Resource):
                 return {'message': error_message}, 400        
         
         # Define the query to retrieve stop details
-        cursor.execute(f"SELECT {", ".join(valid_params) if include_fields else "*"} FROM stops WHERE stop_id = ?", (stop_id,))
+        cursor.execute(f"SELECT {"stop_id, " + ", ".join(valid_params) if include_fields else "*"} FROM stops WHERE stop_id = ?", (stop_id,))
         stop_data = cursor.fetchone()
 
         if stop_data is None:
