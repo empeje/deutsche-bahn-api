@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import sqlite3
 import requests
-from flask import Flask, json, request, jsonify, url_for, abort
+from flask import Flask, json, request, jsonify, url_for, abort, send_file
 from flask_restx import Api, Resource, fields
 from datetime import datetime
 
@@ -534,11 +534,15 @@ class Guide(Resource):
             response = gemini.generate_content(prompt)
 
             if response:
-                return {"guide": response.text}, 200
+                filename = f"{studentid}.txt"
+                with open(filename, 'w') as file:
+                    file.write(response.text)
+                return send_file(filename, as_attachment=True)
             else:
                 print(f"Error fetching guide")
                 return None, 503
-        except:
+        except Exception as e:
+            print(e)
             return None, 503
 
 
