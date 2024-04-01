@@ -125,6 +125,7 @@ def get_nearby_stop(stop_id):
 @api.route("/stops")
 class Stops(Resource):
     @api.expect(api.model("StopQuery", {"query": fields.String(required=True)}))
+    @api.response(200, "Success without new import")
     @api.response(201, "Stops retrieved successfully")
     @api.response(400, "Invalid query string")
     @api.response(404, "No stops found matching the query")
@@ -299,6 +300,10 @@ def validate_parameters(parameters):
 @api.route("/stops/<int:stop_id>")
 @api.param("stop_id", "The ID of the stop to retrieve information about")
 class Stop(Resource):
+    @api.response(200, "Successfully retrieved information about stop")
+    @api.response(400, "Invalid id")
+    @api.response(404, "No stops found matching the query")
+    @api.response(503, "Deutsche Bahn API or database unavailable")
     def get(self, stop_id):
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -318,7 +323,6 @@ class Stop(Resource):
 
         # Define the query to retrieve stop details
 
-        # cursor.execute(f"SELECT {", ".join(["stop_id"] + valid_params) if include_fields else "*"} FROM stops WHERE stop_id = ?", (stop_id,))
         cursor.execute(
             "SELECT "
             + (",".join(["stop_id"] + valid_params) if include_fields else "*")
@@ -351,11 +355,6 @@ class Stop(Resource):
 
         nearby_stop = get_nearby_stop(stop_id)
 
-        # links = {
-        #    "self": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{stop_id}",
-        #    "next": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_next"]}" if nearby_stop["output_next"] else None,
-        #    "prev": f"http://{app.config['HOST_NAME']}:{app.config['PORT']}/stops/{nearby_stop["output_prev"]}" if nearby_stop["output_prev"] else None,
-        # }
         links = {
             "self": "http://{}:{}/stops/{}".format(
                 app.config["HOST_NAME"], app.config["PORT"], stop_id
@@ -390,6 +389,9 @@ class Stop(Resource):
 
         return stop_dict, 200
 
+    @api.response(200, "Successfully delete information about stop")
+    @api.response(400, "Invalid id")
+    @api.response(404, "No stops found matching the query")
     def delete(self, stop_id):
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -435,6 +437,10 @@ class Stop(Resource):
             },
         )
     )
+    @api.response(200, "Successfully update information about stop")
+    @api.response(400, "Invalid id")
+    @api.response(404, "No stops found matching the query")
+    @api.response(503, "Database unavailable")
     def patch(self, stop_id):
         update_data = request.json
         print(update_data)
@@ -597,6 +603,10 @@ def add_operator_information(data):
 
 @api.route("/operator-profiles/<int:stop_id>")
 class Stop(Resource):
+    @api.response(200, "Successfully retrieved information about stop's operator profile")
+    @api.response(400, "Invalid id")
+    @api.response(404, "No stops found matching the query")
+    @api.response(503, "Deutsche Bahn API or database unavailable")
     def get(self, stop_id):
         conn = get_db_connection()
         cursor = conn.cursor()
