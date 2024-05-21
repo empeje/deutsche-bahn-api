@@ -31,7 +31,7 @@ pydantic_core==2.16.3
 python-dotenv==1.0.1
 pytz==2024.1
 referencing==0.34.0
-requests==2.31.0
+requests==2.32.0
 rpds-py==0.18.0
 rsa==4.9
 tqdm==4.66.2
