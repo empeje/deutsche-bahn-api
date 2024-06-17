@@ -36,5 +36,5 @@ rpds-py==0.18.0
 rsa==4.9
 tqdm==4.66.2
 typing_extensions==4.10.0
-urllib3==2.2.1
+urllib3==2.2.2
 Werkzeug==3.0.1
